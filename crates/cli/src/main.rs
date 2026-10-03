@@ -19,6 +19,9 @@ macro_rules! out {
 
 const USAGE: &str = "\
 usage:
+  grim extract <disc image> [dest] [language]
+                                unpacks the game from an image of its disc (.iso or .bin)
+                                into <dest>/HP2 (default game/HP2)
   grim survey [dir]              parse every package and summarize by class
   grim objects                   links every class and instantiates every object
   grim skins <map>               reports actors whose mesh textures do not resolve
@@ -62,11 +65,39 @@ usage:
                                 a procedural texture's settings and sparks; with a path, runs
                                 it for a second and writes the picture out, or a run of them";
 
+/// Unpacks the game from its disc into `<dest>/HP2`, replacing what was there.
+fn extract(image: &Path, dest: &Path, language: Option<&str>) -> Result<(), String> {
+    let disc = grim_disc::Disc::open(std::sync::Arc::new(grim_disc::FileSource::open(image)?))?;
+    out!("{} image; languages on the disc: {}", if disc.is_raw() { "raw BIN" } else { "ISO" }, disc.languages.join(", "));
+    let language = match language.or(disc.default_language()) {
+        Some(l) => l.to_string(),
+        None => return Err(format!("this disc has no English dialog; pass one of its languages: {}", disc.languages[1..].join(", "))),
+    };
+    let root = dest.join("HP2");
+    if root.exists() {
+        std::fs::remove_dir_all(&root).map_err(|e| format!("{}: {e}", root.display()))?;
+    }
+    disc.install(&language, &|_| true, &mut |path, data, done, total| {
+        let to = root.join(path);
+        std::fs::create_dir_all(to.parent().unwrap()).map_err(|e| e.to_string())?;
+        std::fs::write(&to, data).map_err(|e| format!("{}: {e}", to.display()))?;
+        if done % 50 == 0 || done == total {
+            out!("{done}/{total} files");
+        }
+        Ok(())
+    })?;
+    out!("installed {language} into {}", root.display());
+    Ok(())
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let res = match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
         ["survey"] => survey(&grim_testkit::require_game_dir()),
         ["survey", dir] => survey(Path::new(dir)),
+        ["extract", image] => extract(Path::new(image), Path::new("game"), None),
+        ["extract", image, dest] => extract(Path::new(image), Path::new(dest), None),
+        ["extract", image, dest, language] => extract(Path::new(image), Path::new(dest), Some(language)),
         ["objects"] => objects(&grim_testkit::require_game_dir()),
         ["natives"] => natives(&grim_testkit::require_game_dir()),
         ["func", pat] => funcs(&grim_testkit::require_game_dir(), pat),

@@ -760,12 +760,21 @@ name = "grim-cli"
 version = "0.1.0"
 dependencies = [
  "grim-assets",
+ "grim-disc",
  "grim-object",
  "grim-package",
  "grim-save",
  "grim-testkit",
  "grim-vm",
  "grim-world",
+]
+
+[[package]]
+name = "grim-disc"
+version = "0.1.0"
+dependencies = [
+ "grim-testkit",
+ "miniz_oxide 0.9.1",
 ]
 
 [[package]]
