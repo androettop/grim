@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>grim-viewer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #15171a; --panel: #1d2024; --line: #2c3036; --text: #d8dce2; --muted: #8a919b;
+    --accent: #6cb2ff; --ok: #62c07a; --warn: #e3b341; --err: #ef6b6b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; height: 100vh; display: flex; }
+  #side { width: 360px; min-width: 260px; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--panel); }
+  #side header { padding: 10px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--line); }
+  select, input, button { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; font: inherit; }
+  button { cursor: pointer; }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  #list { overflow: auto; flex: 1; }
+  .row { padding: 3px 10px; cursor: pointer; display: flex; gap: 8px; white-space: nowrap; }
+  .row:hover { background: #262a30; }
+  .row.sel { background: #2a3a52; }
+  .row .cls { color: var(--muted); width: 110px; overflow: hidden; text-overflow: ellipsis; flex: none; }
+  .row .nm { overflow: hidden; text-overflow: ellipsis; }
+  .st-error .nm { color: var(--err); } .st-unparsed .nm { color: var(--warn); }
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #title { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  #title .sub { color: var(--muted); }
+  #view { flex: 1; position: relative; min-height: 0; overflow: auto; }
+  #tools { position: absolute; top: 8px; left: 8px; display: flex; gap: 6px; flex-wrap: wrap; z-index: 2; align-items: center; }
+  #tools label { background: rgba(0,0,0,.5); padding: 3px 6px; border-radius: 4px; }
+  #details { height: 34%; overflow: auto; border-top: 1px solid var(--line); padding: 10px 14px; background: var(--panel); }
+  #details table { border-collapse: collapse; }
+  #details td { padding: 1px 10px 1px 0; vertical-align: top; }
+  #details td:first-child { color: var(--muted); }
+  pre { margin: 6px 0; white-space: pre-wrap; color: #b9c0ca; font: 12px/1.35 ui-monospace, monospace; }
+  .err { color: var(--err); }
+  .tex { image-rendering: pixelated; background: repeating-conic-gradient(#333 0 25%, #444 0 50%) 0 0 / 16px 16px; margin: 48px 16px 16px; }
+  canvas { display: block; }
+  a { color: var(--accent); cursor: pointer; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="side">
+  <header>
+    <select id="pkg"></select>
+    <input id="filter" placeholder="filter by name or class (e.g. SkeletalMesh)">
+  </header>
+  <div id="list"></div>
+</div>
+<div id="main">
+  <div id="title">Select a package and an object.</div>
+  <div id="view"></div>
+  <div id="details"></div>
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

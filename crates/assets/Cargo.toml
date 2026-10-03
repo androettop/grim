@@ -1,0 +1,16 @@
+[package]
+name = "grim-assets"
+description = "Per-class serializers (textures, sounds, meshes, ...) on top of grim-package"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+grim-package.workspace = true
+
+[dev-dependencies]
+grim-testkit.workspace = true

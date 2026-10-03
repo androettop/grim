@@ -1,0 +1,29 @@
+[package]
+name = "grim-game"
+description = "Runs a level in a window: VM, collision and rendering together"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "grim-play"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+grim-package.workspace = true
+grim-assets.workspace = true
+grim-object.workspace = true
+grim-save.workspace = true
+grim-vm.workspace = true
+grim-world.workspace = true
+grim-render.workspace = true
+grim-render-wgpu.workspace = true
+grim-audio.workspace = true
+grim-audio-cpal.workspace = true
+grim-testkit.workspace = true
+png = "0.18.1"
+winit = "0.30.13"

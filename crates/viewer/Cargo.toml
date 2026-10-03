@@ -1,0 +1,18 @@
+[package]
+name = "grim-viewer"
+description = "Local web viewer to visually inspect parsed assets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+grim-package.workspace = true
+grim-assets.workspace = true
+grim-testkit.workspace = true
+tiny_http = "0.12.0"
+png = "0.18.1"
+serde_json = "1.0.151"

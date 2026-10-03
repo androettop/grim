@@ -1,0 +1,13 @@
+[package]
+name = "grim-package"
+description = "Unreal Engine 1 package reader (Harry Potter II / KnowWonder variant)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+grim-testkit.workspace = true

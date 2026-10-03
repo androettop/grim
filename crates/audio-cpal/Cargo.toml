@@ -1,0 +1,18 @@
+[package]
+name = "grim-audio-cpal"
+description = "Audio backend: cpal output and Ogg Vorbis music"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+grim-audio = { workspace = true }
+cpal = "0.15"
+symphonia = { version = "0.5", default-features = false, features = ["ogg", "vorbis"] }
+
+[dev-dependencies]
+grim-testkit.workspace = true
+
+[lints]
+workspace = true

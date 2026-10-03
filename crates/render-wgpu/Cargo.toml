@@ -1,0 +1,15 @@
+[package]
+name = "grim-render-wgpu"
+description = "wgpu backend for grim-render (desktop GPU, with offscreen rendering)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+grim-render.workspace = true
+pollster = "1.0.1"
+wgpu = "30.0.1"

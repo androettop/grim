@@ -1,0 +1,25 @@
+[workspace]
+resolver = "3"
+members = ["crates/package", "crates/assets", "crates/testkit", "crates/cli", "crates/viewer", "crates/object", "crates/save", "crates/vm", "crates/world", "crates/render", "crates/render-wgpu", "crates/audio", "crates/audio-cpal", "crates/game"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+publish = false
+
+[workspace.dependencies]
+grim-package = { path = "crates/package" }
+grim-assets = { path = "crates/assets" }
+grim-testkit = { path = "crates/testkit" }
+grim-object = { path = "crates/object" }
+grim-save = { path = "crates/save" }
+grim-vm = { path = "crates/vm" }
+grim-world = { path = "crates/world" }
+grim-render = { path = "crates/render" }
+grim-render-wgpu = { path = "crates/render-wgpu" }
+grim-audio = { path = "crates/audio" }
+grim-audio-cpal = { path = "crates/audio-cpal" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

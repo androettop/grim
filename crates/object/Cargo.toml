@@ -1,0 +1,17 @@
+[package]
+name = "grim-object"
+description = "Runtime object model: linked classes, property layouts, defaults and instances"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+grim-package.workspace = true
+grim-assets.workspace = true
+
+[dev-dependencies]
+grim-testkit.workspace = true
