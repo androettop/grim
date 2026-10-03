@@ -1,6 +1,6 @@
 //! Test and diagnostics helpers; the engine never depends on this crate.
 //!
-//! Validation runs against the real game files, extracted by `tools/extract_assets.sh` into
+//! Validation runs against the real game files, unpacked by `grim extract` into
 //! `game/HP2` (gitignored) or pointed to by `GRIM_GAME_DIR`.
 
 use std::path::{Path, PathBuf};
@@ -22,7 +22,7 @@ pub fn require_game_dir() -> PathBuf {
     game_dir().unwrap_or_else(|| {
         panic!(
             "game assets not found: extract them with \
-             `tools/extract_assets.sh <image.bin>` or set {GAME_DIR_ENV}"
+             `cargo run --release -p grim-cli -- extract <disc image>` or set {GAME_DIR_ENV}"
         )
     })
 }

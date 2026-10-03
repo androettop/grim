@@ -50,12 +50,12 @@ dd if=/dev/rdisk4 of=hp2.iso bs=2048
 image file from disc") or [AnyBurn](https://www.anyburn.com/) ("Copy disc to image file"),
 saving as `.iso`.
 
-Then unpack the data from the image into `game/` (needs `python3`, `7z` and `unshield`; on
-Windows, run it under WSL):
+Then unpack the game from the image into `game/` (needs a [Rust](https://rustup.rs/)
+toolchain):
 
 ```sh
-tools/extract_assets.sh hp2.iso                  # English disc
-tools/extract_assets.sh hp2.iso game spa         # a disc without English: pick its language
+cargo run --release -p grim-cli -- extract hp2.iso             # English disc
+cargo run --release -p grim-cli -- extract hp2.iso game spa    # a disc without English: pick its language
 ```
 
 The engine looks for the data in `game/HP2`, or wherever `GRIM_GAME_DIR` points.
