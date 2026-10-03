@@ -1,5 +1,6 @@
 [package]
 name = "grim-save"
+description = "Reader for the game's save slots: the actors a level keeps between visits"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
