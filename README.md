@@ -8,6 +8,9 @@ reads the original packages directly and runs the game's own UnrealScript in its
 machine. No code or binaries from the original game or from other engine reimplementations are
 used, and this repository contains no game content: you need your own copy of the game.
 
+**Play it in the browser: <https://androettop.github.io/grim/>**, with an image of your own
+game disc (it is read in the browser; nothing is uploaded).
+
 | Privet Drive | Entrance Hall |
 |---|---|
 | ![Privet Drive at night, during the opening cutscene](docs/screenshots/privet-drive.png) | ![Harry in the Entrance Hall](docs/screenshots/entrance-hall.png) |
@@ -25,9 +28,9 @@ used, and this repository contains no game content: you need your own copy of th
   game's menus work.
 - Rendering with the levels' lightmaps, mirrors, particles and procedural textures;
   sound effects, voices and music.
-- Developed and tested on Linux, with the Spanish and the English/European releases of the
-  game. It is built on portable libraries (wgpu, winit, cpal), but Windows and macOS are
-  untested.
+- Runs on Linux and in browsers with WebGPU or WebGL 2. Tested with the Spanish and the
+  English/European releases of the game. It is built on portable libraries (wgpu, winit,
+  cpal), but Windows and macOS are untested.
 
 ## Getting the game data
 
@@ -71,6 +74,19 @@ cargo run --release -p grim-game -- PrivetDr    # any map name from game/HP2/Map
 
 WASD moves, the mouse looks, Shift runs, Escape opens the menu and Tab releases the mouse.
 `--size 1024x768` opens the window at a fixed size.
+
+### In the browser
+
+The web version is built with the `wasm32-unknown-unknown` target and a `wasm-bindgen-cli` of
+the same version as the `wasm-bindgen` crate in `Cargo.lock`; any static server will do:
+
+```sh
+crates/web/build.sh                          # writes target/site
+python3 -m http.server -d target/site 8000   # then open http://localhost:8000/
+```
+
+The page asks for the disc image, unpacks it in a worker and keeps the game in the browser's
+storage, so later visits skip the image. `?debug` in the address turns the debug mode on.
 
 ## Debug tools
 
