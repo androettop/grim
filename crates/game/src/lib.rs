@@ -206,7 +206,7 @@ struct ActorDraw {
     env_map: bool,
 }
 
-struct Game {
+pub struct Game {
     vm: Vm,
     level: LoadedLevel,
     report: Report,
@@ -307,6 +307,9 @@ struct Game {
     mesh_lows: grim_object::FastMap<MeshId, f32>,
     section_has_texture: grim_object::FastMap<MeshId, Vec<bool>>,
     last_frame: web_time::Instant,
+    /// Where the browser leaves the renderer once it has made one.
+    #[cfg(target_arch = "wasm32")]
+    pending_renderer: std::rc::Rc<std::cell::RefCell<Option<Result<WgpuRenderer, String>>>>,
     map: String,
     textures: grim_world::scene::TextureCache,
 }
@@ -459,9 +462,16 @@ impl Game {
             brush_mirrors: grim_object::FastMap::default(),
             section_has_texture: grim_object::FastMap::default(),
             last_frame: web_time::Instant::now(),
+            #[cfg(target_arch = "wasm32")]
+            pending_renderer: Default::default(),
             map: map.to_string(),
             textures: grim_world::scene::TextureCache::new(),
         })
+    }
+
+    /// Turns the debug mode, with its overlay and its inspection keys, on or off.
+    pub fn set_debug(&mut self, on: bool) {
+        self.debug = on;
     }
 
     /// The map the level asks to change to, if it has. Unreal leaves the next URL on the level
@@ -3125,6 +3135,47 @@ impl Game {
     }
 }
 
+impl Game {
+    /// Once there is something to draw with: what the level draws is built before the first
+    /// frame, and the pointer is taken.
+    fn renderer_ready(&mut self, event_loop: &ActiveEventLoop, renderer: Result<WgpuRenderer, String>) {
+        match renderer {
+            Ok(r) => self.renderer = Some(r),
+            Err(e) => {
+                eprintln!("renderer: {e}");
+                event_loop.exit();
+                return;
+            }
+        }
+        if let Some(size) = self.window.as_ref().map(|w| w.inner_size()) {
+            if let Some(r) = self.renderer.as_mut() {
+                r.resize(size.width.max(1), size.height.max(1));
+            }
+            self.viewport = (size.width.max(1), size.height.max(1));
+        }
+        self.show_black();
+        if let Err(e) = self.build_scene_resources() {
+            eprintln!("scene: {e}");
+            event_loop.exit();
+        }
+        self.precache();
+        self.grab(true);
+    }
+}
+
+/// The id of the canvas a page gives the game to draw in.
+#[cfg(target_arch = "wasm32")]
+pub const WEB_CANVAS: &str = "grim";
+
+/// Plays a loaded game in the page's canvas, for as long as the page is open.
+#[cfg(target_arch = "wasm32")]
+pub fn run_in_browser(game: Game) {
+    use winit::platform::web::EventLoopExtWebSys;
+    let event_loop = EventLoop::new().expect("cannot create the event loop");
+    event_loop.set_control_flow(ControlFlow::Poll);
+    event_loop.spawn_app(game);
+}
+
 fn find_actor(vm: &mut Vm, class_name: &str) -> Option<ObjectKey> {
     let name = vm.world.names.intern(class_name);
     vm.actors.clone().into_iter().find(|&a| vm.class_of(a).is_ok_and(|c| vm.world.class(c).name == name))
@@ -3142,28 +3193,48 @@ impl ApplicationHandler for Game {
         if let Some((w, h)) = self.window_size {
             attrs = attrs.with_inner_size(winit::dpi::PhysicalSize::new(w, h)).with_resizable(false);
         }
+        // In a browser the window is the page's canvas.
+        #[cfg(target_arch = "wasm32")]
+        {
+            use wasm_bindgen::JsCast;
+            use winit::platform::web::WindowAttributesExtWebSys;
+            let canvas = web_sys::window()
+                .and_then(|w| w.document())
+                .and_then(|d| d.get_element_by_id(WEB_CANVAS))
+                .and_then(|e| e.dyn_into::<web_sys::HtmlCanvasElement>().ok());
+            attrs = attrs.with_canvas(canvas).with_prevent_default(true);
+        }
         let window = Arc::new(event_loop.create_window(attrs).expect("cannot create the window"));
         let size = window.inner_size();
         self.viewport = (size.width.max(1), size.height.max(1));
-        match WgpuRenderer::for_window(window.clone(), size.width, size.height) {
-            Ok(r) => self.renderer = Some(r),
-            Err(e) => {
-                eprintln!("renderer: {e}");
-                event_loop.exit();
-                return;
-            }
+        self.window = Some(window.clone());
+        #[cfg(not(target_arch = "wasm32"))]
+        self.renderer_ready(event_loop, WgpuRenderer::for_window(window, size.width, size.height));
+        // The browser hands the GPU over asynchronously; the frames pick the renderer up once
+        // it is there.
+        #[cfg(target_arch = "wasm32")]
+        {
+            let slot = self.pending_renderer.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                let r = WgpuRenderer::for_window(window, size.width, size.height).await;
+                *slot.borrow_mut() = Some(r);
+            });
         }
-        self.window = Some(window);
-        self.show_black();
-        if let Err(e) = self.build_scene_resources() {
-            eprintln!("scene: {e}");
-            event_loop.exit();
-        }
-        self.precache();
-        self.grab(true);
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        #[cfg(target_arch = "wasm32")]
+        if self.renderer.is_none() {
+            let ready = self.pending_renderer.borrow_mut().take();
+            match ready {
+                Some(r) => self.renderer_ready(event_loop, r),
+                None => {
+                    if let WindowEvent::RedrawRequested = event {
+                        return;
+                    }
+                }
+            }
+        }
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {
@@ -3297,6 +3368,7 @@ fn write_png(out: &str, width: u32, height: u32, rgba: &[u8]) -> Result<(), Stri
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// Plays the game without a window and writes what it draws as a video, frame by frame
 /// through ffmpeg. Useful to watch a cutscene without sitting in front of it.
 /// A scripted run of the player's controls, so a recording can show what a key does.
@@ -3310,6 +3382,7 @@ struct Script {
     cursor: Vec<([f32; 2], f32, f32)>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Script {
     fn from_env() -> Self {
         let Ok(text) = std::env::var("GRIM_DEBUG_DRIVE") else { return Self::default() };
@@ -3365,6 +3438,7 @@ pub const MAX_TICK: f32 = 0.4;
 /// How many samples a second a recording mixes at.
 pub const RECORD_RATE: u32 = 44100;
 
+#[cfg(not(target_arch = "wasm32"))]
 fn record(game: &mut Game, out: &str, seconds: f32, mut audio: Option<grim_audio_cpal::OfflineAudio>) -> Result<(), String> {
     if std::env::var_os("GRIM_DEBUG_SPELLS").is_some() {
         game.grant_spells();
@@ -3782,6 +3856,7 @@ fn record(game: &mut Game, out: &str, seconds: f32, mut audio: Option<grim_audio
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// Renders one frame without a window and writes it as a PNG.
 fn shot(game: &mut Game, out: &str) -> Result<(), String> {
     // The game's own interface is laid out for 4:3, so that is what a shot uses.
@@ -3986,6 +4061,7 @@ fn shot(game: &mut Game, out: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// Starts one named cutscene: the game state it belongs to is said to be the current one (what
 /// `OnResolveGameState` decides), and then it is played.
 fn play_cutscene(game: &mut Game, name: &str) -> Result<(), String> {
@@ -4013,6 +4089,7 @@ fn play_cutscene(game: &mut Game, name: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// What `grim-play` does with its command line.
 pub fn main_cli() {
     let args: Vec<String> = std::env::args().skip(1).collect();

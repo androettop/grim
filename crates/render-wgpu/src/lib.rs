@@ -33,6 +33,7 @@ struct Texture {
 }
 
 enum Target {
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     Offscreen { color: wgpu::Texture, width: u32, height: u32 },
     Surface { surface: wgpu::Surface<'static>, config: wgpu::SurfaceConfiguration },
 }
@@ -353,6 +354,7 @@ fn fs(in: VsOut) -> @location(0) vec4<f32> {
 
 impl WgpuRenderer {
     /// Renderer without a window, drawing into an image of the given size.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn offscreen(width: u32, height: u32) -> Result<Self, String> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
         let (device, queue, adapter) = Self::device(&instance, None)?;
@@ -365,13 +367,32 @@ impl WgpuRenderer {
 
     /// Renderer drawing into a window surface. The window is shared so the surface can
     /// outlive this call, and its display handle is what Wayland needs to create the instance.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn for_window<W>(window: std::sync::Arc<W>, width: u32, height: u32) -> Result<Self, String>
     where
         W: wgpu::rwh::HasWindowHandle + wgpu::rwh::HasDisplayHandle + std::fmt::Debug + Send + Sync + 'static,
     {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle_from_env(Box::new(window.clone())));
+        pollster::block_on(Self::for_surface(instance, window, width, height))
+    }
+
+    /// The same in a browser, where nothing may block: the window is a canvas, and the GPU is
+    /// WebGPU where the browser has it and WebGL 2 where it does not.
+    #[cfg(target_arch = "wasm32")]
+    pub async fn for_window<W>(window: std::sync::Arc<W>, width: u32, height: u32) -> Result<Self, String>
+    where
+        W: wgpu::rwh::HasWindowHandle + wgpu::rwh::HasDisplayHandle + std::fmt::Debug + Send + Sync + 'static,
+    {
+        let instance = wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor::new_with_display_handle(Box::new(window.clone()))).await;
+        Self::for_surface(instance, window, width, height).await
+    }
+
+    async fn for_surface<W>(instance: wgpu::Instance, window: std::sync::Arc<W>, width: u32, height: u32) -> Result<Self, String>
+    where
+        W: wgpu::rwh::HasWindowHandle + wgpu::rwh::HasDisplayHandle + std::fmt::Debug + Send + Sync + 'static,
+    {
         let surface = instance.create_surface(window).map_err(|e| e.to_string())?;
-        let (device, queue, adapter) = Self::device(&instance, Some(&surface))?;
+        let (device, queue, adapter) = Self::request_device(&instance, Some(&surface)).await?;
         let caps = surface.get_capabilities(&adapter);
         let format = caps
             .formats
@@ -404,29 +425,41 @@ impl WgpuRenderer {
         Self::build(device, queue, Target::Surface { surface, config }, format, depth)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn device(
         instance: &wgpu::Instance,
         surface: Option<&wgpu::Surface<'static>>,
     ) -> Result<(wgpu::Device, wgpu::Queue, wgpu::Adapter), String> {
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: surface,
-            force_fallback_adapter: false,
-            apply_limit_buckets: false,
-        }))
-        .map_err(|e| format!("no GPU adapter: {e}"))?;
+        pollster::block_on(Self::request_device(instance, surface))
+    }
+
+    async fn request_device(
+        instance: &wgpu::Instance,
+        surface: Option<&wgpu::Surface<'static>>,
+    ) -> Result<(wgpu::Device, wgpu::Queue, wgpu::Adapter), String> {
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: surface,
+                force_fallback_adapter: false,
+                apply_limit_buckets: false,
+            })
+            .await
+            .map_err(|e| format!("no GPU adapter: {e}"))?;
         // The adapter's own limits: the conservative defaults cap textures at 2048, which is
         // smaller than a common desktop window.
         let limits = adapter.limits();
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("grim"),
-            required_features: wgpu::Features::empty(),
-            required_limits: limits,
-            experimental_features: Default::default(),
-            memory_hints: wgpu::MemoryHints::Performance,
-            trace: wgpu::Trace::Off,
-        }))
-        .map_err(|e| format!("no GPU device: {e}"))?;
+        let (device, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some("grim"),
+                required_features: wgpu::Features::empty(),
+                required_limits: limits,
+                experimental_features: Default::default(),
+                memory_hints: wgpu::MemoryHints::Performance,
+                trace: wgpu::Trace::Off,
+            })
+            .await
+            .map_err(|e| format!("no GPU device: {e}"))?;
         Ok((device, queue, adapter))
     }
 

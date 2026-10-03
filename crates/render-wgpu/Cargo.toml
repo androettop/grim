@@ -11,5 +11,11 @@ workspace = true
 
 [dependencies]
 grim-render.workspace = true
-pollster = "1.0.1"
 wgpu = "30.0.1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+pollster = "1.0.1"
+
+# WebGL 2 for the browsers without WebGPU.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wgpu = { version = "30.0.1", features = ["webgl"] }
