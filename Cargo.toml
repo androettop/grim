@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/fs", "crates/disc", "crates/package", "crates/assets", "crates/testkit", "crates/cli", "crates/viewer", "crates/object", "crates/save", "crates/vm", "crates/world", "crates/render", "crates/render-wgpu", "crates/audio", "crates/audio-cpal", "crates/game"]
+members = ["crates/fs", "crates/disc", "crates/package", "crates/assets", "crates/testkit", "crates/cli", "crates/viewer", "crates/object", "crates/save", "crates/vm", "crates/world", "crates/render", "crates/render-wgpu", "crates/audio", "crates/audio-cpal", "crates/game", "crates/web"]
 
 [workspace.package]
 version = "0.1.0"
@@ -22,6 +22,7 @@ grim-render = { path = "crates/render" }
 grim-render-wgpu = { path = "crates/render-wgpu" }
 grim-audio = { path = "crates/audio" }
 grim-audio-cpal = { path = "crates/audio-cpal" }
+grim-game = { path = "crates/game" }
 
 web-time = "1"
 

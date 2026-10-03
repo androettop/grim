@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>grim</title>
+<link rel="icon" href="data:,">
+<style>
+  body { margin: 0; padding: 16px; background: #000; color: #ccc; font: 15px sans-serif; }
+  a { color: #ccc; }
+  body.playing { padding: 0; }
+  body.playing #ui { display: none; }
+  #grim { display: none; }
+  /* The game's interface is laid out for 4:3. */
+  body.playing #grim { display: block; margin: auto; width: min(100vw, calc(100vh * 4 / 3)); height: min(100vh, calc(100vw * 3 / 4)); }
+</style>
+</head>
+<body>
+<div id="ui">
+  <p>grim: Harry Potter and the Chamber of Secrets (PC, 2002) in the browser.
+  Pick an image of your game disc (.iso or .bin). It is read here; nothing is uploaded.</p>
+  <p><input type="file" id="file" accept=".iso,.bin,.img"> <button id="play" hidden>Play</button></p>
+  <p id="status"></p>
+  <p><a href="https://github.com/androettop/grim">github.com/androettop/grim</a></p>
+</div>
+<canvas id="grim" tabindex="0"></canvas>
+<script type="module" src="main.js"></script>
+</body>
+</html>

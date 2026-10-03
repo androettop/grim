@@ -25,7 +25,7 @@ pub struct Disc {
 const SKIPPED: &[&str] = &["dll", "exe", "sys", "ex_", "scc", "dsp", "log"];
 
 impl Disc {
-    pub fn open(source: Arc<dyn Source + Send + Sync>) -> Result<Self, String> {
+    pub fn open(source: Arc<dyn Source>) -> Result<Self, String> {
         let image = Arc::new(Image::open(source)?);
         let iso = Iso::open(&*image)?;
         let slice = |path: &str| -> Result<Slice, String> {

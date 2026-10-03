@@ -70,7 +70,7 @@ impl Source for FileSource {
 
 /// A stretch of another source, such as a file inside the disc image.
 pub struct Slice {
-    pub source: Arc<dyn Source + Send + Sync>,
+    pub source: Arc<dyn Source>,
     pub offset: u64,
     pub len: u64,
 }
@@ -96,12 +96,12 @@ const SYNC: [u8; 12] = [0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x
 /// The 2048-byte data sectors of a disc image: an ISO holds them back to back, a raw `.bin`
 /// wraps each in a 2352-byte sector (12 bytes of sync, a 4-byte header, then the data).
 pub struct Image {
-    source: Arc<dyn Source + Send + Sync>,
+    source: Arc<dyn Source>,
     raw: bool,
 }
 
 impl Image {
-    pub fn open(source: Arc<dyn Source + Send + Sync>) -> Result<Self, String> {
+    pub fn open(source: Arc<dyn Source>) -> Result<Self, String> {
         let head = source.read_vec(0, 16).map_err(|e| format!("disc image too short: {e}"))?;
         let raw = head[..12] == SYNC;
         if raw {

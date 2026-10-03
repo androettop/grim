@@ -1,0 +1,26 @@
+[package]
+name = "grim-web"
+description = "The game in a browser: unpacks the disc the player picks and runs it in a canvas"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+grim-fs.workspace = true
+grim-disc.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+grim-game.workspace = true
+grim-audio.workspace = true
+grim-audio-cpal.workspace = true
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Blob", "FileReaderSync", "console", "Window", "AudioContext", "AudioContextState", "BaseAudioContext", "AudioBuffer", "AudioBufferSourceNode", "AudioScheduledSourceNode", "AudioNode", "AudioDestinationNode"] }
+console_error_panic_hook = "0.1"
