@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+use grim_fs::{FileSystem, NativeFs};
+
 use crate::package::Package;
 use crate::tables::ObjectRef;
 
@@ -12,6 +14,7 @@ use crate::tables::ObjectRef;
 pub const SEARCH_EXTENSIONS: &[&str] = &["u", "unr", "utx", "uax", "umx"];
 
 pub struct Library {
+    fs: Arc<dyn FileSystem>,
     root: PathBuf,
     by_name: HashMap<String, PathBuf>,
     loaded: Mutex<HashMap<PathBuf, Arc<Package>>>,
@@ -25,26 +28,26 @@ pub struct ObjectHandle {
 
 impl Library {
     pub fn open(root: impl AsRef<Path>) -> Self {
+        Self::open_in(Arc::new(NativeFs), root)
+    }
+
+    /// The packages under `root` in a given file system.
+    pub fn open_in(fs: Arc<dyn FileSystem>, root: impl AsRef<Path>) -> Self {
         let root = root.as_ref().to_path_buf();
         let mut by_name = HashMap::new();
-        let mut stack = vec![root.clone()];
-        while let Some(dir) = stack.pop() {
-            let Ok(rd) = std::fs::read_dir(&dir) else { continue };
-            for e in rd.flatten() {
-                let p = e.path();
-                if p.is_dir() {
-                    stack.push(p);
-                    continue;
-                }
-                let ext = p.extension().and_then(|s| s.to_str()).unwrap_or_default().to_ascii_lowercase();
-                if SEARCH_EXTENSIONS.contains(&ext.as_str()) {
-                    if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
-                        by_name.entry(stem.to_ascii_lowercase()).or_insert(p);
-                    }
+        for p in fs.files_under(&root) {
+            let ext = p.extension().and_then(|s| s.to_str()).unwrap_or_default().to_ascii_lowercase();
+            if SEARCH_EXTENSIONS.contains(&ext.as_str()) {
+                if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
+                    by_name.entry(stem.to_ascii_lowercase()).or_insert(p);
                 }
             }
         }
-        Self { root, by_name, loaded: Mutex::new(HashMap::new()) }
+        Self { fs, root, by_name, loaded: Mutex::new(HashMap::new()) }
+    }
+
+    pub fn fs(&self) -> &Arc<dyn FileSystem> {
+        &self.fs
     }
 
     pub fn root(&self) -> &Path {
@@ -55,9 +58,8 @@ impl Library {
         if let Some(p) = self.loaded.lock().unwrap().get(path) {
             return Ok(p.clone());
         }
-        let pkg = Package::open(path)
-            .map_err(|e| format!("{}: {e}", path.display()))?
-            .map_err(|e| format!("{}: {e}", path.display()))?;
+        let data = self.fs.read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let pkg = Package::parse(Package::name_of(path), data).map_err(|e| format!("{}: {e}", path.display()))?;
         let pkg = Arc::new(pkg);
         self.loaded.lock().unwrap().insert(path.to_path_buf(), pkg.clone());
         Ok(pkg)

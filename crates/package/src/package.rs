@@ -57,13 +57,12 @@ impl Package {
     pub fn open(path: impl AsRef<Path>) -> std::io::Result<Result<Self>> {
         let path = path.as_ref();
         let data = std::fs::read(path)?;
-        let name = path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .and_then(|s| s.split('.').next())
-            .unwrap_or_default()
-            .to_string();
-        Ok(Self::parse(name, data.into()))
+        Ok(Self::parse(Self::name_of(path), data.into()))
+    }
+
+    /// The package's name, which is its file's name up to the first dot.
+    pub fn name_of(path: &Path) -> String {
+        path.file_name().and_then(|s| s.to_str()).and_then(|s| s.split('.').next()).unwrap_or_default().to_string()
     }
 
     pub fn parse(name: String, data: Arc<[u8]>) -> Result<Self> {

@@ -1,0 +1,10 @@
+[package]
+name = "grim-fs"
+description = "Backend-agnostic file access: the game's files on disk or held in memory"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

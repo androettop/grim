@@ -2,6 +2,9 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use grim_fs::FileSystem;
 
 use grim_object::{PropDef, PropType, Value};
 
@@ -55,8 +58,8 @@ impl Ini {
         ini
     }
 
-    pub fn load(path: &Path) -> Option<Self> {
-        std::fs::read(path).ok().map(|b| Self::parse(&b))
+    pub fn load(fs: &dyn FileSystem, path: &Path) -> Option<Self> {
+        fs.read(path).ok().map(|b| Self::parse(&b))
     }
 
     pub fn get(&self, section: &str, key: &str) -> Option<&str> {
@@ -99,19 +102,8 @@ impl Ini {
     }
 }
 
-/// Finds `dir/name` ignoring case in every component (the game was made for Windows, so
-/// `name` may also contain `\` separators).
-pub fn find_file(dir: &Path, name: &str) -> Option<PathBuf> {
-    let mut cur = dir.to_path_buf();
-    for part in name.split(['\\', '/']).filter(|p| !p.is_empty()) {
-        cur = std::fs::read_dir(&cur).ok()?.flatten().map(|e| e.path()).find(|p| {
-            p.file_name().is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case(part))
-        })?;
-    }
-    Some(cur)
-}
-
 pub struct Config {
+    fs: Arc<dyn FileSystem>,
     pub system: PathBuf,
     pub ini: Ini,
     /// The player's own settings, where the key bindings live.
@@ -124,12 +116,13 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn load(game_root: &Path) -> Self {
+    pub fn load(fs: Arc<dyn FileSystem>, game_root: &Path) -> Self {
         let system = game_root.join("System");
-        let ini = find_file(&system, "Default.ini").and_then(|p| Ini::load(&p)).unwrap_or_default();
+        let load = |name: &str| fs.find(&system, name).and_then(|p| Ini::load(&*fs, &p));
+        let ini = load("Default.ini").unwrap_or_default();
         // What the player changed wins over what the game ships with.
-        let mut user = find_file(&system, "DefUser.ini").and_then(|p| Ini::load(&p)).unwrap_or_default();
-        if let Some(mine) = find_file(&system, "User.ini").and_then(|p| Ini::load(&p)) {
+        let mut user = load("DefUser.ini").unwrap_or_default();
+        if let Some(mine) = load("User.ini") {
             for (section, entries) in mine.sections.clone() {
                 user.sections.insert(section, entries);
             }
@@ -137,14 +130,14 @@ impl Config {
         // Settings the player changed in an earlier run. They are kept in a file of this
         // engine's own rather than in the game's, which is read-only as far as we care.
         let mut ini = ini;
-        let changed = find_file(&system, "grim.ini").and_then(|p| Ini::load(&p)).unwrap_or_default();
+        let changed = load("grim.ini").unwrap_or_default();
         for (section, entries) in changed.sections.clone() {
             for (key, value) in entries {
                 ini.set(&section, &key, &value);
             }
         }
         let language = ini.get("Engine.Engine", "Language").unwrap_or("int").to_ascii_lowercase();
-        Self { system, ini, user, language, changed, loc: HashMap::new() }
+        Self { fs, system, ini, user, language, changed, loc: HashMap::new() }
     }
 
     /// What a key is bound to, following the aliases the bindings go through. Unreal keeps
@@ -209,7 +202,7 @@ impl Config {
             let file = self
                 .find_loc(&format!("{package}.{}", self.language))
                 .or_else(|| self.find_loc(&format!("{package}.int")))
-                .and_then(|p| Ini::load(&p));
+                .and_then(|p| Ini::load(&*self.fs, &p));
             self.loc.insert(key.clone(), file);
         }
         self.loc.get(&key).and_then(|f| f.as_ref())
@@ -220,12 +213,12 @@ impl Config {
     /// names that directory. Hypothesis: the engine looks inside the system directory's folders;
     /// one level down is as deep as this game goes.
     fn find_loc(&self, name: &str) -> Option<PathBuf> {
-        if let Some(p) = find_file(&self.system, name) {
+        if let Some(p) = self.fs.find(&self.system, name) {
             return Some(p);
         }
-        let mut dirs: Vec<PathBuf> = std::fs::read_dir(&self.system).ok()?.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect();
+        let mut dirs: Vec<PathBuf> = self.fs.read_dir(&self.system).ok()?.into_iter().filter(|e| e.is_dir).map(|e| e.path).collect();
         dirs.sort();
-        dirs.iter().find_map(|d| find_file(d, name))
+        dirs.iter().find_map(|d| self.fs.find(d, name))
     }
 
     pub fn localize(&mut self, section: &str, key: &str, package: &str) -> Option<String> {
@@ -415,6 +408,6 @@ impl Config {
                 text.push_str(&format!("{key}={value}\n"));
             }
         }
-        std::fs::write(self.system.join("grim.ini"), text)
+        self.fs.write(&self.system.join("grim.ini"), text.as_bytes())
     }
 }

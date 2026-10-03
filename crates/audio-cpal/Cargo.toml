@@ -8,10 +8,16 @@ publish.workspace = true
 
 [dependencies]
 grim-audio = { workspace = true }
+grim-fs.workspace = true
 cpal = "0.15"
 symphonia = { version = "0.5", default-features = false, features = ["ogg", "vorbis"] }
 
+# The browser's Web Audio.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+cpal = { version = "0.15", features = ["wasm-bindgen"] }
+
 [dev-dependencies]
+grim-fs.workspace = true
 grim-testkit.workspace = true
 
 [lints]

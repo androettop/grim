@@ -9,5 +9,8 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[dependencies]
+grim-fs.workspace = true
+
 [dev-dependencies]
 grim-testkit.workspace = true

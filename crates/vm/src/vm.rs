@@ -381,7 +381,7 @@ const MAX_DEPTH: u32 = 250;
 
 impl Vm {
     pub fn new(world: World) -> Self {
-        let config = crate::config::Config::load(world.lib.root());
+        let config = crate::config::Config::load(world.lib.fs().clone(), world.lib.root());
         let natives_by_index = (0..world.functions.len())
             .filter(|&i| world.functions[i].native != 0)
             .map(|i| (world.functions[i].native, FuncId(i as u32)))

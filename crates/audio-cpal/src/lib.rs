@@ -4,8 +4,10 @@
 //! It also offers an offline backend that mixes into a buffer instead of a device, which is
 //! what a recording uses to put the game's sound into a video.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+
+use grim_fs::FileSystem;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use grim_audio::{Audio, Kind, Listener, Mixer, Play, Samples, SoundId, SoundParam, Volumes};
@@ -13,6 +15,13 @@ use grim_audio::{Audio, Kind, Listener, Mixer, Play, Samples, SoundId, SoundPara
 /// Music is mixed as one more voice, with this owner so it can be stopped on its own.
 const MUSIC_OWNER: u64 = u64::MAX;
 const MUSIC_SLOT: u8 = 200;
+
+/// Where the game's songs are: its `Music` folder, in whatever file system holds the game.
+#[derive(Clone)]
+pub struct MusicFiles {
+    pub fs: Arc<dyn FileSystem>,
+    pub dir: PathBuf,
+}
 
 /// Shared between the caller and the audio thread.
 struct Shared {
@@ -23,20 +32,19 @@ struct Shared {
 }
 
 /// Decodes an Ogg Vorbis file to 16-bit PCM.
-pub fn decode_ogg(path: &Path) -> Result<Samples, String> {
+pub fn decode_ogg(data: Vec<u8>) -> Result<Samples, String> {
     use symphonia::core::codecs::DecoderOptions;
     use symphonia::core::formats::FormatOptions;
     use symphonia::core::io::MediaSourceStream;
     use symphonia::core::meta::MetadataOptions;
     use symphonia::core::probe::Hint;
 
-    let file = std::fs::File::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let stream = MediaSourceStream::new(Box::new(file), Default::default());
+    let stream = MediaSourceStream::new(Box::new(std::io::Cursor::new(data)), Default::default());
     let mut hint = Hint::new();
     hint.with_extension("ogg");
     let probed = symphonia::default::get_probe()
         .format(&hint, stream, &FormatOptions::default(), &MetadataOptions::default())
-        .map_err(|e| format!("{}: {e}", path.display()))?;
+        .map_err(|e| e.to_string())?;
     let mut format = probed.format;
     let track = format.default_track().ok_or("no track")?;
     let (id, rate, channels) = (
@@ -46,7 +54,7 @@ pub fn decode_ogg(path: &Path) -> Result<Samples, String> {
     );
     let mut decoder = symphonia::default::get_codecs()
         .make(&track.codec_params, &DecoderOptions::default())
-        .map_err(|e| format!("{}: {e}", path.display()))?;
+        .map_err(|e| e.to_string())?;
     let mut data: Vec<i16> = Vec::new();
     loop {
         let packet = match format.next_packet() {
@@ -72,13 +80,13 @@ pub fn decode_ogg(path: &Path) -> Result<Samples, String> {
 #[derive(Clone)]
 pub struct OfflineAudio {
     shared: Arc<Mutex<Shared>>,
-    music_dir: PathBuf,
+    music: MusicFiles,
 }
 
 impl OfflineAudio {
-    pub fn new(rate: u32, music_dir: impl Into<PathBuf>) -> Self {
+    pub fn new(rate: u32, music: MusicFiles) -> Self {
         let shared = Shared { mixer: Mixer::new(rate), music: Vec::new(), next_music: 1 };
-        Self { shared: Arc::new(Mutex::new(shared)), music_dir: music_dir.into() }
+        Self { shared: Arc::new(Mutex::new(shared)), music }
     }
 
     /// Mixes the next stretch of sound, interleaved stereo.
@@ -126,9 +134,9 @@ impl Audio for OfflineAudio {
         self.with(|s| s.mixer.set_volumes(volumes));
     }
     fn play_music(&mut self, song: &str, fade_in: f32) -> u32 {
-        let dir = self.music_dir.clone();
+        let files = self.music.clone();
         self.with(|s| {
-            let Some(id) = load_music(&mut s.mixer, &dir, song) else { return 0 };
+            let Some(id) = load_music(&mut s.mixer, &files, song) else { return 0 };
             let Shared { mixer, music, next_music } = s;
             start_music(mixer, music, next_music, id, fade_in)
         })
@@ -154,13 +162,13 @@ impl Audio for OfflineAudio {
 /// The sound card, fed from cpal's own thread.
 pub struct CpalAudio {
     shared: Arc<Mutex<Shared>>,
-    music_dir: PathBuf,
+    music: MusicFiles,
     // Dropping the stream stops the sound, so it is kept alive here.
     _stream: cpal::Stream,
 }
 
 impl CpalAudio {
-    pub fn open(music_dir: impl Into<PathBuf>) -> Result<Self, String> {
+    pub fn open(music: MusicFiles) -> Result<Self, String> {
         let host = cpal::default_host();
         let device = host.default_output_device().ok_or("no audio output device")?;
         let config = device.default_output_config().map_err(|e| e.to_string())?;
@@ -201,7 +209,7 @@ impl CpalAudio {
             )
             .map_err(|e| e.to_string())?;
         stream.play().map_err(|e| e.to_string())?;
-        Ok(Self { shared, music_dir: music_dir.into(), _stream: stream })
+        Ok(Self { shared, music, _stream: stream })
     }
 
     fn with<T>(&self, f: impl FnOnce(&mut Shared) -> T) -> Option<T> {
@@ -241,9 +249,9 @@ impl Audio for CpalAudio {
         self.with(|s| s.mixer.set_volumes(volumes));
     }
     fn play_music(&mut self, song: &str, fade_in: f32) -> u32 {
-        let dir = self.music_dir.clone();
+        let files = self.music.clone();
         self.with(|s| {
-            let Some(id) = load_music(&mut s.mixer, &dir, song) else { return 0 };
+            let Some(id) = load_music(&mut s.mixer, &files, song) else { return 0 };
             let Shared { mixer, music, next_music } = s;
             start_music(mixer, music, next_music, id, fade_in)
         })
@@ -268,19 +276,21 @@ impl Audio for CpalAudio {
 
 /// Finds a song in the game's `Music` folder and loads it once. The scripts name it without an
 /// extension, and the files are Ogg Vorbis.
-fn load_music(mixer: &mut Mixer, dir: &Path, song: &str) -> Option<SoundId> {
+fn load_music(mixer: &mut Mixer, files: &MusicFiles, song: &str) -> Option<SoundId> {
     let key = music_key(song);
     if let Some(id) = mixer.sound_of(key) {
         return Some(id);
     }
     let name = song.rsplit(['/', '\\']).next().unwrap_or(song);
     let stem = name.split('.').next().unwrap_or(name);
-    let file = std::fs::read_dir(dir)
+    let file = files
+        .fs
+        .read_dir(&files.dir)
         .ok()?
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
+        .into_iter()
+        .map(|e| e.path)
         .find(|p| p.file_stem().and_then(|s| s.to_str()).is_some_and(|s| s.eq_ignore_ascii_case(stem)))?;
-    let samples = decode_ogg(&file).ok()?;
+    let samples = decode_ogg(files.fs.read(&file).ok()?.to_vec()).ok()?;
     Some(mixer.add_sound(key, samples))
 }
 

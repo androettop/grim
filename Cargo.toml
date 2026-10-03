@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/package", "crates/assets", "crates/testkit", "crates/cli", "crates/viewer", "crates/object", "crates/save", "crates/vm", "crates/world", "crates/render", "crates/render-wgpu", "crates/audio", "crates/audio-cpal", "crates/game"]
+members = ["crates/fs", "crates/package", "crates/assets", "crates/testkit", "crates/cli", "crates/viewer", "crates/object", "crates/save", "crates/vm", "crates/world", "crates/render", "crates/render-wgpu", "crates/audio", "crates/audio-cpal", "crates/game"]
 
 [workspace.package]
 version = "0.1.0"
@@ -9,6 +9,7 @@ license = "GPL-3.0-only"
 publish = false
 
 [workspace.dependencies]
+grim-fs = { path = "crates/fs" }
 grim-package = { path = "crates/package" }
 grim-assets = { path = "crates/assets" }
 grim-testkit = { path = "crates/testkit" }

@@ -755,10 +755,10 @@ pub fn register(n: &mut Natives) {
     nat!("Engine.Actor.GetMapName", |vm, c| {
         let (ending, name, dir) = (c.str(0)?.to_string(), c.str(1)?.to_string(), c.int(2)?);
         let dir_path = vm.world.lib.root().join("Maps");
-        let mut maps: Vec<String> = match std::fs::read_dir(&dir_path) {
+        let mut maps: Vec<String> = match vm.world.lib.fs().read_dir(&dir_path) {
             Ok(entries) => entries
-                .filter_map(|e| e.ok())
-                .map(|e| e.file_name().to_string_lossy().to_string())
+                .into_iter()
+                .filter_map(|e| e.path.file_name().map(|n| n.to_string_lossy().to_string()))
                 .filter(|n| n.to_ascii_lowercase().ends_with(".unr"))
                 .filter(|n| ending.is_empty() || n.to_ascii_lowercase().ends_with(&ending.to_ascii_lowercase()))
                 .collect(),

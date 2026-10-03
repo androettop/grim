@@ -750,6 +750,7 @@ version = "0.1.0"
 dependencies = [
  "cpal",
  "grim-audio",
+ "grim-fs",
  "grim-testkit",
  "symphonia",
 ]
@@ -768,12 +769,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "grim-fs"
+version = "0.1.0"
+
+[[package]]
 name = "grim-game"
 version = "0.1.0"
 dependencies = [
  "grim-assets",
  "grim-audio",
  "grim-audio-cpal",
+ "grim-fs",
  "grim-object",
  "grim-package",
  "grim-render",
@@ -799,6 +805,7 @@ dependencies = [
 name = "grim-package"
 version = "0.1.0"
 dependencies = [
+ "grim-fs",
  "grim-testkit",
 ]
 
@@ -846,6 +853,7 @@ version = "0.1.0"
 dependencies = [
  "grim-assets",
  "grim-audio",
+ "grim-fs",
  "grim-object",
  "grim-package",
  "grim-save",

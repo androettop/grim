@@ -10,7 +10,7 @@ fn the_games_music_decodes() {
     assert!(!files.is_empty(), "no music in {}", dir.display());
     // Decoding all 141 would read 64MB; the first few prove the format is read.
     for path in files.iter().take(3) {
-        let pcm = grim_audio_cpal::decode_ogg(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let pcm = grim_audio_cpal::decode_ogg(std::fs::read(path).unwrap()).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         assert!(pcm.rate >= 8000, "{}: rate {}", path.display(), pcm.rate);
         assert!(pcm.channels >= 1);
         assert!(pcm.data.len() > pcm.rate as usize, "{}: only {} samples", path.display(), pcm.data.len());
@@ -30,7 +30,7 @@ fn a_song_of_the_game_can_be_played() {
         .collect();
     names.sort();
     let Some(song) = names.first() else { return };
-    let mut audio = grim_audio_cpal::OfflineAudio::new(44100, &dir);
+    let mut audio = grim_audio_cpal::OfflineAudio::new(44100, grim_audio_cpal::MusicFiles { fs: std::sync::Arc::new(grim_fs::NativeFs), dir });
     // The scripts name a song the way the maps store it, extension and all.
     let handle = audio.play_music(song, 0.0);
     assert!(handle != 0, "{song} should have started");
