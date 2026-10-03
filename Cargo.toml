@@ -22,5 +22,7 @@ grim-render-wgpu = { path = "crates/render-wgpu" }
 grim-audio = { path = "crates/audio" }
 grim-audio-cpal = { path = "crates/audio-cpal" }
 
+web-time = "1"
+
 [workspace.lints.rust]
 unsafe_code = "forbid"

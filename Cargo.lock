@@ -789,6 +789,7 @@ dependencies = [
  "grim-vm",
  "grim-world",
  "png",
+ "web-time",
  "winit",
 ]
 
@@ -859,6 +860,7 @@ dependencies = [
  "grim-save",
  "grim-testkit",
  "grim-world",
+ "web-time",
 ]
 
 [[package]]
@@ -870,6 +872,7 @@ dependencies = [
  "grim-package",
  "grim-render",
  "grim-testkit",
+ "web-time",
 ]
 
 [[package]]

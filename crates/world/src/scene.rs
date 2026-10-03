@@ -207,16 +207,16 @@ impl TextureCache {
             if shown.as_ref().is_some_and(|s| !s.contains(&id)) {
                 continue;
             }
-            let t = std::time::Instant::now();
+            let t = web_time::Instant::now();
             let moved = p.tick(dt);
             ts += t.elapsed().as_secs_f32() * 1000.0;
             if moved {
                 n += 1;
                 px += p.width * p.height;
-                let t = std::time::Instant::now();
+                let t = web_time::Instant::now();
                 let pixels = p.rgba();
                 tr += t.elapsed().as_secs_f32() * 1000.0;
-                let t = std::time::Instant::now();
+                let t = web_time::Instant::now();
                 renderer.update_texture(
                     id,
                     TextureData { width: p.width as u32, height: p.height as u32, rgba: &pixels, mips: &[] },

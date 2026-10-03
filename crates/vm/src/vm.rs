@@ -1188,7 +1188,7 @@ impl Vm {
                 );
             }
         }
-        let started = self.profile.is_some().then(std::time::Instant::now);
+        let started = self.profile.is_some().then(web_time::Instant::now);
         let r = self.call_inner(obj, f, &info, args);
         if let (Some(t), Some(profile)) = (started, self.profile.as_mut()) {
             let entry = profile.entry(f).or_default();

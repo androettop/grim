@@ -3811,7 +3811,7 @@ impl Vm {
             }
         }
         let trace = self.switches.trace_tick;
-        let mark = std::time::Instant::now();
+        let mark = web_time::Instant::now();
         // Overlaps are only looked for around actors that moved, against the ones that collide.
         // What was destroyed leaves the list: every loop over the actors skips it anyway, and
         // a hub played for a while carries more destroyed actors than live ones (2758 in all
@@ -3826,14 +3826,14 @@ impl Vm {
         if trace {
             eprintln!("TICK collidable {t_collidable:.2} ({} of them), blockers {:.2} ({} of them)", collidable.len(), t_blockers - t_collidable, self.blockers.len());
         }
-        let mark = std::time::Instant::now();
+        let mark = web_time::Instant::now();
         // With the trace on, where the actors' part of the tick goes: their scripts, their
         // physics and animation, and finding out what they touch and the zone they are in.
         let mut phases = [0.0f32; 3];
         // And which classes it goes to, scripts and movement apart.
         let mut by_class: std::collections::HashMap<grim_object::ClassId, [f32; 2]> = std::collections::HashMap::new();
-        let clock = |on: bool| on.then(std::time::Instant::now);
-        let lap = |t: Option<std::time::Instant>, into: &mut f32| {
+        let clock = |on: bool| on.then(web_time::Instant::now);
+        let lap = |t: Option<web_time::Instant>, into: &mut f32| {
             if let Some(t) = t {
                 *into += t.elapsed().as_secs_f32() * 1000.0;
             }
@@ -3926,19 +3926,19 @@ impl Vm {
             lap(t, &mut phases[2]);
         }
         let t_actors = mark.elapsed().as_secs_f32() * 1000.0;
-        let mark = std::time::Instant::now();
+        let mark = web_time::Instant::now();
         // The bones move with the animations, and the particles the scripts hang off them are
         // placed from where they ended up. An animation that carries the actor moves it first,
         // so everything placed off a bone is placed where the actor has arrived.
         self.tick_root_motion(report);
         self.tick_bones(report);
         let t_bones = mark.elapsed().as_secs_f32() * 1000.0;
-        let mark = std::time::Instant::now();
+        let mark = web_time::Instant::now();
         self.tick_particles(dt, report);
         self.tick_audio();
         self.tick_mouths();
         let t_particles = mark.elapsed().as_secs_f32() * 1000.0;
-        let mark = std::time::Instant::now();
+        let mark = web_time::Instant::now();
         self.update_decals(report);
         self.trace_candidates = None;
         if trace {

@@ -306,7 +306,7 @@ struct Game {
     /// How far each mesh reaches below the middle it was centred on.
     mesh_lows: grim_object::FastMap<MeshId, f32>,
     section_has_texture: grim_object::FastMap<MeshId, Vec<bool>>,
-    last_frame: std::time::Instant,
+    last_frame: web_time::Instant,
     map: String,
     textures: grim_world::scene::TextureCache,
 }
@@ -458,7 +458,7 @@ impl Game {
             brush_lightmaps: grim_object::FastMap::default(),
             brush_mirrors: grim_object::FastMap::default(),
             section_has_texture: grim_object::FastMap::default(),
-            last_frame: std::time::Instant::now(),
+            last_frame: web_time::Instant::now(),
             map: map.to_string(),
             textures: grim_world::scene::TextureCache::new(),
         })
@@ -1172,7 +1172,7 @@ impl Game {
         self.frame_time = dt;
         // A tenth of each new frame, so the number on screen does not jump about.
         self.frame_average += (dt - self.frame_average) * 0.1;
-        let started = std::time::Instant::now();
+        let started = web_time::Instant::now();
         self.update_inner(dt);
         self.tick_cost = started.elapsed().as_secs_f32() * 1000.0;
     }
@@ -1286,13 +1286,13 @@ impl Game {
         let (dx, dy) = std::mem::take(&mut self.look);
         let held: Vec<&str> = self.keys.iter().filter_map(|k| key_name(*k)).chain(self.buttons.iter().copied()).collect();
         let input = grim_vm::level::PlayerInput { held: &held, mouse: (dx, -dy) };
-        let started = std::time::Instant::now();
+        let started = web_time::Instant::now();
         self.vm.player_input(input, dt, &mut self.report);
         let t_input = started.elapsed().as_secs_f32() * 1000.0;
-        let started = std::time::Instant::now();
+        let started = web_time::Instant::now();
         self.vm.tick(dt, &mut self.report);
         let t_tick = started.elapsed().as_secs_f32() * 1000.0;
-        let started = std::time::Instant::now();
+        let started = web_time::Instant::now();
         // The console is not an actor, so the engine ticks it itself: its window system needs it.
         if let Some(console) = self.console() {
             if let Err(e) = self.vm.call_event(console, "Tick", vec![Value::Float(dt)]) {
@@ -1305,7 +1305,7 @@ impl Game {
                 eprintln!("travel: {e}");
             }
         }
-        let started = std::time::Instant::now();
+        let started = web_time::Instant::now();
         self.update_view();
         if std::env::var_os("GRIM_TRACE_TICK").is_some() {
             eprintln!(
@@ -1338,7 +1338,7 @@ impl Game {
     /// The mesh an actor draws while it animates: its own copy, posed from the sequence it is
     /// playing. Actors that are not animating share the mesh in its reference pose.
     fn animated_mesh(&mut self, actor: ObjectKey, mesh_key: ObjectKey) -> Option<MeshId> {
-        let started = std::time::Instant::now();
+        let started = web_time::Instant::now();
         let mesh = self.pose_animated(actor, mesh_key);
         self.skinning.0 += started.elapsed().as_secs_f32() * 1000.0;
         mesh
@@ -2682,23 +2682,23 @@ impl Game {
     }
 
     fn render(&mut self) {
-        let started = std::time::Instant::now();
+        let started = web_time::Instant::now();
         if self.zone_meshes.is_empty() {
             return;
         }
         // The textures the engine draws itself move on before anything is drawn with them.
-        let tt = std::time::Instant::now();
+        let tt = web_time::Instant::now();
         if let Some(renderer) = self.renderer.as_mut() {
             self.textures.tick(renderer, self.frame_time);
         }
         let t_textures = tt.elapsed().as_secs_f32() * 1000.0;
-        let tt = std::time::Instant::now();
+        let tt = web_time::Instant::now();
         self.draw_scripted_textures();
         let t_scripted = tt.elapsed().as_secs_f32() * 1000.0;
-        let tt = std::time::Instant::now();
+        let tt = web_time::Instant::now();
         self.frame_mirrors = self.mirror_planes();
         let t_mirrors = tt.elapsed().as_secs_f32() * 1000.0;
-        let t0 = std::time::Instant::now();
+        let t0 = web_time::Instant::now();
         self.skinning = (0.0, 0);
         let mut draws = self.actor_draws();
         let t_draws = t0.elapsed().as_secs_f32() * 1000.0;
@@ -2949,7 +2949,7 @@ impl Game {
             env_map: d.env_map,
             lightmap: d.lightmap,
         }));
-        let t3 = std::time::Instant::now();
+        let t3 = web_time::Instant::now();
         // GRIM_NO_OVERLAY leaves out what the game draws over the world, to see the world alone
         // while a title card or a menu would cover it.
         let overlay = if std::env::var_os("GRIM_NO_OVERLAY").is_some() { Vec::new() } else { self.draw_overlay() };
@@ -3019,10 +3019,10 @@ impl Game {
             plane[0] * c[0] + plane[1] * c[1] + plane[2] * c[2] - plane[3] > 0.0
         });
         let culled_mirrors = mirror_passes - mirrors.len();
-        let t1 = std::time::Instant::now();
+        let t1 = web_time::Instant::now();
         let mut sprites = self.particle_sprites();
         let t_particles = t1.elapsed().as_secs_f32() * 1000.0;
-        let t2 = std::time::Instant::now();
+        let t2 = web_time::Instant::now();
         sprites.extend(self.actor_sprites());
         let t_sprites = t2.elapsed().as_secs_f32() * 1000.0;
         let seen_sprites = sprites.len();
@@ -3257,7 +3257,7 @@ impl ApplicationHandler for Game {
                 }
             }
             WindowEvent::RedrawRequested => {
-                let now = std::time::Instant::now();
+                let now = web_time::Instant::now();
                 let dt = (now - self.last_frame).as_secs_f32().min(MAX_TICK);
                 self.last_frame = now;
                 self.update(dt);
@@ -3521,7 +3521,7 @@ fn record(game: &mut Game, out: &str, seconds: f32, mut audio: Option<grim_audio
             let _ = game.vm.call_event(console, "Tick", vec![Value::Float(dt)]);
         }
         if let Some(url) = game.pending_travel() {
-            let started = std::time::Instant::now();
+            let started = web_time::Instant::now();
             game.travel(&url)?;
             after_load = Some(started.elapsed().as_secs_f32().min(MAX_TICK));
         }
@@ -3824,7 +3824,7 @@ fn shot(game: &mut Game, out: &str) -> Result<(), String> {
     if let Ok(n) = std::env::var("GRIM_DEBUG_FRAMES").unwrap_or_default().parse::<u32>() {
         let input = grim_vm::level::PlayerInput::default();
         let _ = game.vm.take_script_profile();
-        let start = std::time::Instant::now();
+        let start = web_time::Instant::now();
         for _ in 0..n {
             game.vm.player_input(input, 1.0 / 60.0, &mut game.report);
             game.vm.tick(1.0 / 60.0, &mut game.report);
@@ -3834,7 +3834,7 @@ fn shot(game: &mut Game, out: &str) -> Result<(), String> {
         for (path, ms, calls) in game.vm.take_script_profile().into_iter().take(40) {
             println!("  {:8.3} ms {:7.1} calls  {path}", ms / n as f64, calls as f64 / n as f64);
         }
-        let start = std::time::Instant::now();
+        let start = web_time::Instant::now();
         for _ in 0..n {
             game.render();
         }
